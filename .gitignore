@@ -1,0 +1,11 @@
+*.pyc
+*.png
+*~
+fill_basic_data_csvs
+fill_bunchbybunch_data_csvs
+fill_extra_data_csvs
+fill_heatload_data_csvs
+fills_and_bmodes.csv
+fills_and_bmodes.pkl
+heatloads_per_sector
+LHCMeasurementTools
