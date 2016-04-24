@@ -222,16 +222,20 @@ tc = time_conv.from_unix
 fill_info = Fills_Info('fills_and_bmodes.pkl')
 fill_list = fill_info.fills_in_time_window(t_start_unix, t_end_unix)
 
+# find offset to remove
 if zero_at is not None:
     if ':' in zero_at:
         t_zero_unix = time.mktime(time.strptime(zero_at, '%d-%m-%Y,%H:%M'))
     else:
         t_zero_unix  = t_ref_unix + float(zero_at)*3600.
-        
+    filln_offset = fill_info.filln_at_time(t_zero_unix)
+    fill_dict = {}
+    fill_dict.update(tm.parse_timber_file('fill_basic_data_csvs/basic_data_fill_%d.csv'%filln_offset, verbose=False))
+    fill_dict.update(tm.parse_timber_file('fill_heatload_data_csvs/heatloads_fill_%d.csv'%filln_offset, verbose=False))
+    dict_offsets={}
+    for kk in hl_varlist:
+        dict_offsets[kk] = np.interp(t_zero_unix, np.float_(np.array(fill_dict[kk].t_stamps)), fill_dict[kk].float_values())
 
-    
-
-offset = 0. # to be handled later
 
 pl.close('all')
 ms.mystyle_arial(fontsz=fontsz, dist_tick_lab=9)
@@ -274,13 +278,20 @@ for i_fill, filln in enumerate(fill_list):
     heatloads = SetOfHomogeneousNumericVariables(variable_list=hl_varlist, timber_variables=fill_dict)
     hl_model = SetOfHomogeneousNumericVariables(variable_list=HL.variable_lists_heatloads['MODEL'], timber_variables=fill_dict)
         
+    
+    # remove offset
+    if zero_at is not None:
+        for device in hl_varlist:
+            heatloads.timber_variables[device].values = heatloads.timber_variables[device].values - dict_offsets[device]
+    
     # normalize to the length
     if normalization_to_length_of is not None:
         for device in hl_varlist:
             heatloads.timber_variables[device].values = heatloads.timber_variables[device].values/norm_length_dict[device]
         for device in HL.variable_lists_heatloads['MODEL']:
             hl_model.timber_variables[device].values = hl_model.timber_variables[device].values/53.45
-    
+            
+
     if plot_all:
         for ii, kk in enumerate(heatloads.variable_list):
             colorcurr = ms.colorprog(i_prog=ii, Nplots=len(heatloads.variable_list))        
@@ -294,8 +305,8 @@ for i_fill, filln in enumerate(fill_list):
                 label = label[:-1]
             else:
                 label = None        
-            ax2.plot(tc(heatloads.timber_variables[kk].t_stamps), heatloads.timber_variables[kk].values-offset,
-            '-', color=colorcurr, lw=2., label=label)
+            ax2.plot(tc(heatloads.timber_variables[kk].t_stamps), heatloads.timber_variables[kk].values,
+                       '-', color=colorcurr, lw=2., label=label)
             
             if mode == 'norm_to_intensity':
                 t_curr = heatloads.timber_variables[kk].t_stamps
@@ -317,11 +328,11 @@ for i_fill, filln in enumerate(fill_list):
         hl_ts, hl_aver = heatloads.mean()
     
     if plot_average:  
-        ax2.plot(tc(hl_ts), hl_aver-offset,'k-', lw=2.)
+        ax2.plot(tc(hl_ts), hl_aver,'k-', lw=2.)
     
     if mode == 'integrated':
         t_for_integrated += list(hl_ts)
-        hl_for_integrated += list(hl_aver-offset)
+        hl_for_integrated += list(hl_aver)
 
     if flag_filln and t_startfill>t_start_unix-15*60:
         # Fill number labeling
@@ -358,6 +369,7 @@ ax2.grid('on')
 
 if mode == 'integrated':
     hl_for_integrated = np.array(hl_for_integrated)
+    hl_for_integrated[hl_for_integrated<0.] = 0.
     t_for_integrated = np.array(t_for_integrated)
     hl_for_integrated[t_for_integrated < t_start_unix] = 0.
     integrated_hl = cumtrapz(hl_for_integrated, t_for_integrated)
