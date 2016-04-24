@@ -1,7 +1,4 @@
 import sys, os
-BIN = os.path.expanduser("../")
-sys.path.append(BIN)
-
 import pickle
 import time
 import pylab as pl
